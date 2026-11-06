@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>井字棋</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #222; color: #fff; padding-top: 40px; margin: 0; }
+        .status { font-size: 24px; margin-bottom: 20px; color: #4caf50; height: 30px; }
+        .board { display: grid; grid-template-columns: repeat(3, 100px); grid-gap: 5px; justify-content: center; margin-bottom: 20px; }
+        .cell { width: 100px; height: 100px; background-color: #333; border: 2px solid #555; font-size: 36px; font-weight: bold; line-block: 100px; line-height: 100px; cursor: pointer; user-select: none; }
+        .cell:hover { background-color: #444; }
+        .cell.X { color: #2196f3; }
+        .cell.O { color: #f44336; }
+        .btn { padding: 10px 20px; font-size: 16px; background-color: #4caf50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<h1>井字棋 (先进攻、后拦截)</h1>
+<div class="status" id="status">游戏加载中...</div>
+
+<div class="board">
+    <div class="cell" id="cell-a" onclick="playerMove('a')"></div>
+    <div class="cell" id="cell-b" onclick="playerMove('b')"></div>
+    <div class="cell" id="cell-c" onclick="playerMove('c')"></div>
+    <div class="cell" id="cell-d" onclick="playerMove('d')"></div>
+    <div class="cell" id="cell-e" onclick="playerMove('e')"></div>
+    <div class="cell" id="cell-f" onclick="playerMove('f')"></div>
+    <div class="cell" id="cell-g" onclick="playerMove('g')"></div>
+    <div class="cell" id="cell-h" onclick="playerMove('h')"></div>
+    <div class="cell" id="cell-i" onclick="playerMove('i')"></div>
+</div>
+
+<button class="btn" onclick="resetGame()">重新开始</button>
+
+<script>
+    let state = { a:0, b:0, c:0, d:0, e:0, f:0, g:0, h:0, i:0 };
+    let gameOver = false;
+
+    // 定义井字棋所有的三连线组合
+    const lines = [
+        ['a', 'b', 'c'], ['d', 'e', 'f'], ['g', 'h', 'i'], // 横向
+        ['a', 'd', 'g'], ['b', 'e', 'h'], ['c', 'f', 'i'], // 纵向
+        ['a', 'e', 'i'], ['c', 'e', 'g']                 // 对角线
+    ];
+
+    function initGame() {
+        let playFirst = Math.random() >= 0.5;
+        if (!playFirst) {
+            document.getElementById('status').innerText = "电脑先手，占领了左上角(a)...";
+            state.a = 2;
+            updateBoard();
+        } else {
+            document.getElementById('status').innerText = "你先手 (X)，请点击格子落子！";
+        }
+    }
+
+    function playerMove(key) {
+        if (gameOver || state[key] !== 0) return;
+        state[key] = 1;
+        updateBoard();
+
+        if (checkWin(1)) { document.getElementById('status').innerText = "🎉 恭喜你，你赢了！"; gameOver = true; return; }
+        if (checkDraw()) { document.getElementById('status').innerText = "🤝 平局！"; gameOver = true; return; }
+
+        document.getElementById('status').innerText = "电脑思考中...";
+        setTimeout(computerMove, 300);
+    }
+
+    function computerMove() {
+        if (gameOver) return;
+        let moved = false;
+
+        // 【第一优先级】：检测电脑(2)自己能否一击必胜
+        for (let line of lines) {
+            let count2 = line.filter(k => state[k] === 2).length;
+            let count0 = line.filter(k => state[k] === 0).length;
+            if (count2 === 2 && count0 === 1) {
+                let target = line.find(k => state[k] === 0);
+                state[target] = 2;
+                moved = true;
+                break;
+            }
+        }
+
+        // 【第二优先级】：如果不能赢，检查玩家(1)是否快赢了，进行拦截
+        if (!moved) {
+            for (let line of lines) {
+                let count1 = line.filter(k => state[k] === 1).length;
+                let count0 = line.filter(k => state[k] === 0).length;
+                if (count1 === 2 && count0 === 1) {
+                    let target = line.find(k => state[k] === 0);
+                    state[target] = 2;
+                    moved = true;
+                    break;
+                }
+            }
+        }
+
+        // 【第三优先级】：无进攻也无威胁，按优先级保底落子 (e -> a -> d -> b...)
+        if (!moved) {
+            const priorityOrder = ['e', 'a', 'd', 'b', 'i', 'c', 'g', 'f', 'h'];
+            for (let key of priorityOrder) {
+                if (state[key] === 0) {
+                    state[key] = 2;
+                    moved = true;
+                    break;
+                }
+            }
+        }
+
+        updateBoard();
+
+        if (checkWin(2)) { document.getElementById('status').innerText = "😭 电脑赢了，你输了！"; gameOver = true; return; }
+        if (checkDraw()) { document.getElementById('status').innerText = "🤝 平局！"; gameOver = true; return; }
+        document.getElementById('status').innerText = "轮到你了 (X)";
+    }
+
+    function updateBoard() {
+        for (let key in state) {
+            let cell = document.getElementById('cell-' + key);
+            if (state[key] === 1) { cell.innerText = 'X'; cell.className = 'cell X'; }
+            else if (state[key] === 2) { cell.innerText = 'O'; cell.className = 'cell O'; }
+            else { cell.innerText = ''; cell.className = 'cell'; }
+        }
+    }
+
+    function checkWin(p) {
+        return lines.some(line => line.every(k => state[k] === p));
+    }
+
+    function checkDraw() {
+        return Object.values(state).every(v => v !== 0);
+    }
+
+    function resetGame() {
+        state = { a:0, b:0, c:0, d:0, e:0, f:0, g:0, h:0, i:0 };
+        gameOver = false;
+        updateBoard();
+        initGame();
+    }
+
+    initGame();
+</script>
+</body>
+</html>
